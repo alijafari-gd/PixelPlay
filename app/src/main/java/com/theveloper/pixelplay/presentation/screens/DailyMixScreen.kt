@@ -107,6 +107,8 @@ fun DailyMixScreen(
     val aiError by playerViewModel.aiError.collectAsState()
     val lazyListState = rememberLazyListState()
 
+    val prompt by playerViewModel.userPreferencesRepository.rememberedDailyMixPrompt.collectAsState("")
+
     var showSongInfoSheet by remember { mutableStateOf(false) }
     var selectedSongForInfo by remember { mutableStateOf<Song?>(null) }
     var showDailyMixMenu by remember { mutableStateOf(false) }
@@ -118,6 +120,7 @@ fun DailyMixScreen(
                 playerViewModel.regenerateDailyMixWithPrompt(prompt)
                 showDailyMixMenu = false
             },
+            rememberedPrompt = prompt,
             isLoading = isGeneratingAiPlaylist
         )
     }

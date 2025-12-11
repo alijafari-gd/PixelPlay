@@ -290,6 +290,7 @@ class DailyMixManager @Inject constructor(
         }
 
         val calendar = Calendar.getInstance()
+
         val seed = calendar.get(Calendar.YEAR) * 1000 + calendar.get(Calendar.DAY_OF_YEAR)
         val random = java.util.Random(seed.toLong())
 

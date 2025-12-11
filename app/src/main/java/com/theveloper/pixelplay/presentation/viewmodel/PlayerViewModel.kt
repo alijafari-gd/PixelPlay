@@ -146,6 +146,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.last
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
@@ -271,7 +272,7 @@ private data class ActiveSession(
 class PlayerViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val musicRepository: MusicRepository,
-    private val userPreferencesRepository: UserPreferencesRepository,
+    val userPreferencesRepository: UserPreferencesRepository,
     private val albumArtThemeDao: AlbumArtThemeDao,
     val syncManager: SyncManager, // Inyectar SyncManager
     private val songMetadataEditor: SongMetadataEditor,
@@ -612,10 +613,21 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    private fun updateDailyMix() {
+    private fun updateDailyMix(force : Boolean = false) {
         // Cancel any previous job to avoid multiple updates running
         dailyMixJob?.cancel()
         dailyMixJob = viewModelScope.launch(Dispatchers.IO) {
+
+            try {
+                val alreadyGeneratedToday = userPreferencesRepository.passMixGenerationForToday.first()
+                if (alreadyGeneratedToday && !force) {
+                    Log.d("DailyMix", "AI daily mix was generated for today . skipping auto generation")
+                    return@launch
+                }
+            } catch (_: Exception) {
+                //proceed
+            }
+
             // We need all songs to generate the mix
             val allSongs = allSongsFlow.first()
             if (allSongs.isNotEmpty()) {
@@ -711,7 +723,7 @@ class PlayerViewModel @Inject constructor(
 
     fun forceUpdateDailyMix() {
         viewModelScope.launch {
-            updateDailyMix()
+            updateDailyMix(true)
             userPreferencesRepository.saveLastDailyMixUpdateTimestamp(System.currentTimeMillis())
         }
     }
@@ -990,6 +1002,7 @@ class PlayerViewModel @Inject constructor(
         _bluetoothAudioDevices.value = connectedDevices.toList().sorted()
     }
 
+    @SuppressLint("MissingPermission")
     private fun safeGetConnectedDevices(profile: Int): List<BluetoothDevice> {
         return runCatching { bluetoothManager.getConnectedDevices(profile) }.getOrElse { emptyList() }
     }
@@ -3974,11 +3987,14 @@ class PlayerViewModel @Inject constructor(
                     candidateSongs = candidatePool
                 )
 
+                userPreferencesRepository.saveDailyMixPrompt(prompt)
                 result.onSuccess { generatedSongs ->
                     if (generatedSongs.isNotEmpty()) {
                         val updatedMix = generatedSongs.toImmutableList()
                         _dailyMixSongs.value = updatedMix
+                        _yourMixSongs.value = updatedMix
                         userPreferencesRepository.saveDailyMixSongIds(updatedMix.map { it.id })
+                        userPreferencesRepository.flagGeneratedForToday()
                         sendToast("Daily Mix actualizado con IA")
                     } else {
                         sendToast("La IA no encontró canciones para este mix")

@@ -12,22 +12,16 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.theveloper.pixelplay.data.model.Playlist
 import com.theveloper.pixelplay.data.model.SortOption // Added import
-import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.model.TransitionSettings
-import dagger.hilt.android.qualifiers.ApplicationContext
 import androidx.datastore.preferences.core.MutablePreferences
-import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import java.io.File
+import java.util.Calendar
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.text.get
-import kotlin.text.set
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
@@ -89,6 +83,12 @@ class UserPreferencesRepository @Inject constructor(
         val IS_CROSSFADE_ENABLED = booleanPreferencesKey("is_crossfade_enabled")
         val CROSSFADE_DURATION = intPreferencesKey("crossfade_duration")
         val DISABLE_CAST_AUTOPLAY = booleanPreferencesKey("disable_cast_autoplay")
+
+        // Daily Mix Prefrences
+
+        val REMEMBERED_DAILY_MIX_PROMPT = stringPreferencesKey("daily_mix_prompt")
+        val MIX_GENERATED_FOR_TODAY = intPreferencesKey("daily_mix_generated_flag")
+        
     }
 
     val isCrossfadeEnabledFlow: Flow<Boolean> = dataStore.data
@@ -205,6 +205,17 @@ class UserPreferencesRepository @Inject constructor(
             } else {
                 emptyList()
             }
+        }
+
+    val rememberedDailyMixPrompt : Flow<String> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.REMEMBERED_DAILY_MIX_PROMPT] ?: ""
+        }
+
+
+    val passMixGenerationForToday : Flow<Boolean> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.MIX_GENERATED_FOR_TODAY] == Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
         }
 
     private suspend fun savePlaylists(playlists: List<Playlist>) {
@@ -705,6 +716,17 @@ class UserPreferencesRepository @Inject constructor(
     suspend fun setFoldersPlaylistView(isPlaylistView: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.IS_FOLDERS_PLAYLIST_VIEW] = isPlaylistView
+        }
+    }
+
+    suspend fun saveDailyMixPrompt(prompt : String) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.REMEMBERED_DAILY_MIX_PROMPT] = prompt
+        }
+    }
+    suspend fun flagGeneratedForToday() {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MIX_GENERATED_FOR_TODAY] = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
         }
     }
 }

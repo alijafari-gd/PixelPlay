@@ -24,10 +24,11 @@ import androidx.compose.ui.unit.dp
 fun DailyMixMenu(
     onDismiss: () -> Unit,
     onApplyPrompt: (String) -> Unit,
+    rememberedPrompt : String ,
     isLoading: Boolean
 ) {
     val sheetState = rememberModalBottomSheetState()
-    var prompt by remember { mutableStateOf("") }
+    var prompt by remember { mutableStateOf(rememberedPrompt) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
